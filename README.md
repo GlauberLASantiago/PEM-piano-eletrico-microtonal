@@ -57,6 +57,4 @@ Soundfont-Player (para carregamento e reprodução de fontes sonoras MIDI)
 
 Desenvolvido pelo professor Glauber Santiago — DAC/UFSCar.
 
-Página Institucional
 
-Glauberia (Portefólio)
