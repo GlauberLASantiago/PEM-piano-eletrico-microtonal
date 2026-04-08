@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teclado Microtonal - Piano Elétrico</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Importando o Motor Soundfont Player solicitado -->
+    <script src="https://unpkg.com/soundfont-player@0.12.0/dist/soundfont-player.min.js"></script>
+    <style>
+        body {
+            background-color: #121826;
+            color: #e2e8f0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            touch-action: pan-y;
+        }
+        
+        .synth-container {
+            background: #1e293b;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.6);
+            padding: 20px;
+            max-width: 100%;
+            overflow: hidden;
+        }
+
+        .scroll-wrapper {
+            width: 100%;
+            overflow-x: auto;
+            padding-bottom: 20px;
+            -webkit-overflow-scrolling: touch;
+            display: flex;
+            justify-content: center;
+        }
+
+        /* Área do Teclado */
+        .keyboard {
+            position: relative;
+            width: 750px; /* 2 Oitavas (350px cada) + 1 Tecla Branca Final (50px) */
+            height: 220px;
+            user-select: none;
+            touch-action: none;
+            margin-top: 10px;
+            border-top: 4px solid #0f172a; /* Moldura superior */
+        }
+
+        /* Estilos base das teclas */
+        .key {
+            position: absolute;
+            box-sizing: border-box;
+            cursor: pointer;
+            transition: background-color 0.05s, transform 0.05s;
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            padding-bottom: 8px;
+            font-size: 10px;
+            font-weight: bold;
+        }
+
+        /* Teclas Brancas (Tradicionais) */
+        .key.white {
+            width: 50px;
+            height: 200px;
+            background: linear-gradient(to bottom, #ffffff 0%, #e2e8f0 100%);
+            border: 1px solid #94a3b8;
+            border-radius: 0 0 5px 5px;
+            z-index: 1;
+            top: 0;
+            color: rgba(0,0,0,0.4);
+            box-shadow: 2px 4px 6px rgba(0,0,0,0.2);
+        }
+        .key.white.active {
+            background: #cbd5e1;
+            transform: translateY(2px) rotateX(2deg);
+            box-shadow: 1px 2px 3px rgba(0,0,0,0.3);
+        }
+
+        /* Teclas Pretas (Tradicionais) */
+        .key.black {
+            width: 28px;
+            height: 120px;
+            background: linear-gradient(to bottom, #334155 0%, #0f172a 100%);
+            border: 1px solid #000;
+            border-radius: 0 0 5px 5px;
+            z-index: 2;
+            top: 0;
+            color: rgba(255,255,255,0.4);
+            padding-bottom: 12px;
+            box-shadow: 2px 4px 5px rgba(0,0,0,0.4);
+        }
+        .key.black.active {
+            background: linear-gradient(to bottom, #475569 0%, #1e293b 100%);
+            transform: translateY(2px) rotateX(2deg);
+            box-shadow: 1px 2px 2px rgba(0,0,0,0.5);
+        }
+
+        /* Teclas Auxiliares (Quartos de Tom) - Agora partindo do Topo */
+        .key.aux {
+            width: 14px;
+            height: 80px; /* Mais curtas para não invadir muito a área de toque das outras */
+            background: linear-gradient(180deg, #0077b6 0%, #00b4d8 100%);
+            border: 1px solid #023e8a;
+            border-top: none;
+            z-index: 3;
+            top: 0; /* Alinhadas no topo com as normais */
+            border-radius: 0 0 6px 6px; 
+            box-shadow: 0px 4px 6px rgba(0,0,0,0.5), inset 0px -1px 2px rgba(255,255,255,0.4);
+            color: transparent;
+        }
+        .key.aux.active {
+            background: linear-gradient(180deg, #0096c7 0%, #48cae4 100%);
+            transform: translateY(2px);
+            box-shadow: 0px 2px 3px rgba(0,0,0,0.5), inset 0px -1px 1px rgba(0,0,0,0.3);
+        }
+
+        /* Painel Digital */
+        .digital-display {
+            background: #020617;
+            border: 2px solid #334155;
+            border-radius: 8px;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.8);
+            font-family: monospace;
+        }
+        
+        .overlay-start {
+            position: absolute;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(5px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 50;
+            border-radius: 12px;
+        }
+
+        .loader {
+            border: 4px solid rgba(255,255,255,0.1);
+            border-top: 4px solid #3b82f6;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            margin-right: 8px;
+            vertical-align: middle;
+            display: none;
+        }
+
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-center p-4">
+
+    <div class="text-center mb-6 max-w-2xl">
+        <h1 class="text-3xl font-bold text-blue-400 mb-2">Piano Elétrico Microtonal</h1>
+        <p class="text-slate-400 text-sm">
+            Trazendo a magia dos quartos de tom para o timbre clássico do Piano Elétrico.
+        </p>
+    </div>
+
+    <div class="synth-container relative w-full max-w-4xl">
+        
+        <!-- Tela de Início -->
+        <div id="start-overlay" class="overlay-start">
+            <button id="start-btn" class="bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-8 rounded-full shadow-lg transform transition hover:scale-105 text-lg flex items-center">
+                <span id="loader-spinner" class="loader"></span>
+                <span id="btn-text">Carregar Motor de Áudio</span>
+            </button>
+        </div>
+
+        <!-- Painel de Controle Superior -->
+        <div class="flex flex-wrap justify-center items-center mb-6 gap-4">
+            <div class="digital-display px-6 py-3 w-56 text-center">
+                <div class="text-xs text-slate-500 uppercase tracking-widest mb-1">Nota Atual</div>
+                <div id="note-name" class="text-3xl font-bold text-blue-400">--</div>
+                <div id="freq-display" class="text-sm text-blue-200 mt-1">MIDI -- | -- Hz</div>
+            </div>
+        </div>
+
+        <!-- Teclado em si -->
+        <div class="scroll-wrapper">
+            <div id="keyboard" class="keyboard">
+                <!-- Teclas injetadas via JavaScript -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Rodapé com os Créditos -->
+    <footer class="mt-8 text-center text-slate-400 text-sm">
+        <p class="font-bold text-slate-300">Desenvolvido pelo professor Glauber Santiago — DAC/UFSCar</p>
+        <p class="mt-2 space-x-2">
+            <a href="http://servidores.ufscar.br/glauber/" target="_blank" class="hover:text-blue-400 transition-colors">servidores.ufscar.br/glauber/</a>
+            <span class="text-slate-600">•</span>
+            <a href="https://sites.google.com/view/glauberia" target="_blank" class="hover:text-blue-400 transition-colors">sites.google.com/view/glauberia</a>
+        </p>
+    </footer>
+
+    <script>
+        // --- 1. CONFIGURAÇÃO DE ÁUDIO E EFEITOS ---
+        let audioCtx;
+        let masterGain;
+        let effectsInputNode;
+        window.instrument = null; // Armazenará a instância do Soundfont Player
+
+        const activeNotes = {}; // Para rastrear nós tocando
+        let releaseTime = 0.5; // Tempo de liberação/sustain fixo
+        let decayTime = 3.0;   // Tempo de decaimento travado em 3s (máximo)
+
+        function setupAudioSystem() {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+            masterGain = audioCtx.createGain();
+            masterGain.gain.value = 1.0;
+            masterGain.connect(audioCtx.destination);
+
+            effectsInputNode = audioCtx.createGain();
+            effectsInputNode.gain.value = 1.0;
+            
+            // Som original roteado direto
+            effectsInputNode.connect(masterGain);
+        }
+
+        // --- 2. GERAÇÃO DO LAYOUT DO TECLADO ---
+        const keyboard = document.getElementById('keyboard');
+        const numOctaves = 2;
+        const octaveWidth = 350; 
+        
+        const noteNames24TET = [
+            'C', 'C+', 'C#', 'C#+', 'D', 'D+', 'D#', 'D#+', 
+            'E', 'E+', 'F', 'F+', 'F#', 'F#+', 'G', 'G+', 
+            'G#', 'G#+', 'A', 'A+', 'A#', 'A#+', 'B', 'B+'
+        ];
+
+        const octavePattern = [
+            { type: 'W', offset: 0 },    //  0: C
+            { type: 'A', offset: 29 },   //  1: C+ 
+            { type: 'B', offset: 36 },   //  2: C#
+            { type: 'A', offset: 57 },   //  3: C#+ 
+            { type: 'W', offset: 50 },   //  4: D
+            { type: 'A', offset: 79 },   //  5: D+ 
+            { type: 'B', offset: 86 },   //  6: D#
+            { type: 'A', offset: 107 },  //  7: D#+ 
+            { type: 'W', offset: 100 },  //  8: E
+            { type: 'A', offset: 143 },  //  9: E+ 
+            { type: 'W', offset: 150 },  // 10: F
+            { type: 'A', offset: 179 },  // 11: F+ 
+            { type: 'B', offset: 186 },  // 12: F#
+            { type: 'A', offset: 207 },  // 13: F#+ 
+            { type: 'W', offset: 200 },  // 14: G
+            { type: 'A', offset: 229 },  // 15: G+ 
+            { type: 'B', offset: 236 },  // 16: G#
+            { type: 'A', offset: 257 },  // 17: G#+ 
+            { type: 'W', offset: 250 },  // 18: A
+            { type: 'A', offset: 279 },  // 19: A+ 
+            { type: 'B', offset: 286 },  // 20: A#
+            { type: 'A', offset: 307 },  // 21: A#+ 
+            { type: 'W', offset: 300 },  // 22: B
+            { type: 'A', offset: 343 }   // 23: B+ 
+        ];
+
+        function createKeys() {
+            for (let oct = 0; oct < numOctaves; oct++) {
+                octavePattern.forEach((keyData, idx) => {
+                    const keyIndex = oct * 24 + idx;
+                    const keyEl = document.createElement('div');
+                    
+                    let typeClass = keyData.type === 'W' ? 'white' : keyData.type === 'B' ? 'black' : 'aux';
+                    keyEl.className = `key ${typeClass}`;
+                    keyEl.style.left = `${(oct * octaveWidth) + keyData.offset}px`;
+                    keyEl.dataset.index = keyIndex;
+                    
+                    // Sem texto nas teclas
+                    keyboard.appendChild(keyEl);
+                });
+            }
+
+            const finalIndex = numOctaves * 24;
+            const finalKey = document.createElement('div');
+            finalKey.className = 'key white';
+            finalKey.style.left = `${numOctaves * octaveWidth}px`;
+            finalKey.dataset.index = finalIndex;
+            keyboard.appendChild(finalKey);
+        }
+
+        createKeys();
+
+        // --- 3. LÓGICA DE EXECUÇÃO SOUNDFONT ---
+        const noteDisplay = document.getElementById('note-name');
+        const freqDisplay = document.getElementById('freq-display');
+        const BASE_FREQ_C3 = 130.81;
+
+        function playNote(index, keyElement) {
+            if (!audioCtx || !window.instrument) return;
+            
+            if (activeNotes[index]) {
+                if (!activeNotes[index].isPressed) {
+                    activeNotes[index].playingNode.stop(audioCtx.currentTime);
+                } else {
+                    return; // Já está sendo pressionada
+                }
+            } 
+            
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+
+            // O motor soundfont-player é inteligente o suficiente para suportar notas fracionadas.
+            // MIDI 48 = C3. A cada +0.5 é um quarto de tom acima!
+            const midiNote = 48 + (index / 2); 
+            
+            // Cria um GainNode individual para controlar o Decay desta nota específica
+            const noteGain = audioCtx.createGain();
+            noteGain.connect(effectsInputNode);
+
+            // Inicia no volume máximo e decai gradualmente para um valor muito baixo num período de decayTime
+            noteGain.gain.setValueAtTime(1.0, audioCtx.currentTime);
+            noteGain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + decayTime);
+            
+            const playingNode = window.instrument.play(midiNote, audioCtx.currentTime, {
+                destination: noteGain, // Conecta no gain individual, não no global
+                gain: 1.2
+            });
+
+            // Guarda tanto a nota quanto o ganho para que a função stopNote os encontre
+            activeNotes[index] = { playingNode, noteGain, isPressed: true };
+
+            if (keyElement) keyElement.classList.add('active');
+            
+            // Visuais
+            const noteName = noteNames24TET[index % 24] || 'C';
+            const octaveNum = Math.floor(index / 24) + 3;
+            const freqHz = BASE_FREQ_C3 * Math.pow(2, index / 24);
+            
+            noteDisplay.innerText = `${noteName}${octaveNum}`;
+            freqDisplay.innerText = `MIDI ${midiNote.toFixed(1)} | ${freqHz.toFixed(1)} Hz`;
+        }
+
+        function stopNote(index, keyElement) {
+            if (!activeNotes[index]) return;
+
+            activeNotes[index].isPressed = false;
+
+            if (keyElement) keyElement.classList.remove('active');
+
+            const noteObj = activeNotes[index];
+            const time = audioCtx.currentTime;
+
+            // Proteção para caso o noteGain exista
+            if (noteObj.noteGain && noteObj.noteGain.gain) {
+                // Trava o volume exato em que a nota estava durante a queda (decay)
+                noteObj.noteGain.gain.cancelScheduledValues(time);
+                
+                // Impede que o ganho fique nulo ou em valores inválidos durante a interpolação
+                const currentGain = noteObj.noteGain.gain.value || 0.01;
+                noteObj.noteGain.gain.setValueAtTime(currentGain, time);
+                
+                // Aplica o Fade-out final a partir do volume travado de acordo com o tempo fixo de "Release"
+                noteObj.noteGain.gain.linearRampToValueAtTime(0, time + releaseTime);
+            }
+
+            // Envia um comando de stop agendando a liberação final no tempo certo
+            noteObj.playingNode.stop(time + releaseTime);
+            delete activeNotes[index];
+        }
+
+        // Mapeamento Linear QWERTY para tocar via teclado do Computador
+        const qwertyMap = {
+            'z':0, 'x':1, 'c':2, 'v':3, 'b':4, 'n':5, 'm':6, ',':7, '.':8, '/':9,
+            'a':10, 's':11, 'd':12, 'f':13, 'g':14, 'h':15, 'j':16, 'k':17, 'l':18, ';':19, "'":20,
+            'q':21, 'w':22, 'e':23, 'r':24, 't':25, 'y':26, 'u':27, 'i':28, 'o':29, 'p':30, '[':31, ']':32,
+            '1':33, '2':34, '3':35, '4':36, '5':37, '6':38, '7':39, '8':40, '9':41, '0':42, '-':43, '=':44
+        };
+
+        window.addEventListener('keydown', (e) => {
+            if (e.repeat) return; // Evita notas duplas se segurar a tecla
+            const key = e.key.toLowerCase();
+            if (qwertyMap[key] !== undefined) {
+                const index = qwertyMap[key];
+                const keyEl = document.querySelector(`[data-index="${index}"]`);
+                playNote(index, keyEl);
+            }
+        });
+
+        window.addEventListener('keyup', (e) => {
+            const key = e.key.toLowerCase();
+            if (qwertyMap[key] !== undefined) {
+                const index = qwertyMap[key];
+                const keyEl = document.querySelector(`[data-index="${index}"]`);
+                stopNote(index, keyEl);
+            }
+        });
+
+        // --- 4. EVENTOS DE TOQUE / MOUSE ---
+        const activePointers = {}; 
+
+        function handlePointerDown(e) {
+            const key = e.target.closest('.key');
+            if (!key) return;
+            const index = parseInt(key.dataset.index);
+            activePointers[e.pointerId] = index;
+            playNote(index, key);
+            keyboard.setPointerCapture(e.pointerId); 
+        }
+
+        function handlePointerMove(e) {
+            if (activePointers[e.pointerId] !== undefined) {
+                const elem = document.elementFromPoint(e.clientX, e.clientY);
+                const key = elem ? elem.closest('.key') : null;
+                const currentIndex = activePointers[e.pointerId];
+                const newIndex = key ? parseInt(key.dataset.index) : null;
+
+                if (newIndex !== null && newIndex !== currentIndex) {
+                    stopNote(currentIndex, document.querySelector(`[data-index="${currentIndex}"]`));
+                    activePointers[e.pointerId] = newIndex;
+                    playNote(newIndex, key);
+                } else if (newIndex === null) {
+                    stopNote(currentIndex, document.querySelector(`[data-index="${currentIndex}"]`));
+                    delete activePointers[e.pointerId];
+                }
+            }
+        }
+
+        function handlePointerUp(e) {
+            const index = activePointers[e.pointerId];
+            if (index !== undefined) {
+                stopNote(index, document.querySelector(`[data-index="${index}"]`));
+                delete activePointers[e.pointerId];
+            }
+            if (keyboard.hasPointerCapture(e.pointerId)) {
+                keyboard.releasePointerCapture(e.pointerId);
+            }
+        }
+
+        keyboard.addEventListener('pointerdown', handlePointerDown);
+        keyboard.addEventListener('pointermove', handlePointerMove);
+        keyboard.addEventListener('pointerup', handlePointerUp);
+        keyboard.addEventListener('pointercancel', handlePointerUp);
+        keyboard.addEventListener('contextmenu', e => e.preventDefault());
+
+        // --- 5. INICIALIZAÇÃO SOUNDFONT PLAYER ---
+        document.getElementById('start-btn').addEventListener('click', async (e) => {
+            const btnText = document.getElementById('btn-text');
+            const spinner = document.getElementById('loader-spinner');
+            
+            // UI Update
+            btnText.innerText = 'Baixando Piano Elétrico...';
+            spinner.style.display = 'inline-block';
+            e.currentTarget.disabled = true;
+
+            try {
+                if (!audioCtx) setupAudioSystem();
+                if (audioCtx.state === 'suspended') await audioCtx.resume();
+
+                // Carrega o Timbre da API externa via motor solicitado
+                window.instrument = await Soundfont.instrument(audioCtx, 'electric_piano_1');
+                
+                // Concluído
+                document.getElementById('start-overlay').style.display = 'none';
+            } catch (err) {
+                console.error("Erro ao carregar o SoundFont:", err);
+                btnText.innerText = 'Erro! Tentar Novamente.';
+                spinner.style.display = 'none';
+                e.currentTarget.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>
+```
